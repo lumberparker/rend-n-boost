@@ -357,6 +357,7 @@ function attachClientTaskActions(container, projectId, rerenderProject) {
           credits_approved: task.credits_counter,
           credits_counter: task.credits_counter
         });
+        await api.settlePublicTaskApproval(taskId);
         showToast('Contrapropuesta aceptada');
         await rerenderProject();
       } catch (error) {

@@ -462,12 +462,13 @@ async function approveProjectTask(taskId, projectId, onProjectUpdated) {
   }
 
   try {
-    await api.updateTask(taskId, {
+    const approvedTask = await api.updateTask(taskId, {
       status: 'approved',
       credits_approved: task.credits_estimated,
       credits_counter: null,
       creative_notes: null
     });
+    await api.settleTaskApprovalCharge(approvedTask, project);
     showToast('Tarea aprobada');
     onProjectUpdated(await api.getProject(projectId));
   } catch (error) {

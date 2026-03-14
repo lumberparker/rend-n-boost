@@ -225,14 +225,7 @@ async function approveTask(taskId) {
     });
 
     const project = await api.getProject(task.project_id);
-    await api.addCreditsTransaction({
-      client_id: project.client.id,
-      project_id: project.id,
-      type: 'task_usage',
-      description: `Tarea aprobada: ${task.title}`,
-      amount: -(task.credits_approved || task.credits_estimated),
-      reference: task.id
-    });
+    await api.settleTaskApprovalCharge(task, project);
 
     location.reload();
   } catch (error) {

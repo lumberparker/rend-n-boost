@@ -138,6 +138,19 @@ export const api = {
     return data;
   },
 
+  async getTaskUsageTransaction(reference) {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from('credits_history')
+      .select('*')
+      .eq('type', 'task_usage')
+      .eq('reference', String(reference))
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
   async getTasks() {
     const client = requireSupabase();
     const { data, error } = await client
@@ -186,6 +199,31 @@ export const api = {
 
     if (error) throw error;
     return data;
+  },
+
+  async settleTaskApprovalCharge(task, project) {
+    const existing = await api.getTaskUsageTransaction(task.id);
+    if (existing) {
+      return existing;
+    }
+
+    return api.addCreditsTransaction({
+      client_id: project.client.id,
+      project_id: project.id,
+      type: 'task_usage',
+      description: `Tarea aprobada: ${task.title}`,
+      amount: -(task.credits_approved || task.credits_counter || task.credits_estimated),
+      reference: String(task.id)
+    });
+  },
+
+  async settlePublicTaskApproval(taskId) {
+    const client = requireSupabase();
+    const { error } = await client.rpc('settle_public_task_approval', {
+      task_uuid: taskId
+    });
+
+    if (error) throw error;
   },
 
   async addCreditsTransaction(transaction) {
