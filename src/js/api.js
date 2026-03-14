@@ -22,6 +22,18 @@ function requireSupabase() {
 }
 
 export const api = {
+  async createClient(clientInput) {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from('clients')
+      .insert(clientInput)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
   async getClients() {
     const client = requireSupabase();
     const { data, error } = await client
@@ -44,6 +56,18 @@ export const api = {
     return data || [];
   },
 
+  async createProject(projectInput) {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from('projects')
+      .insert(projectInput)
+      .select('*, client:clients(*)')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
   async getProject(id) {
     const client = requireSupabase();
     const { data, error } = await client
@@ -52,6 +76,31 @@ export const api = {
       .eq('id', id)
       .maybeSingle();
     
+    if (error) throw error;
+    return data;
+  },
+
+  async getProjectPublicLink(projectId) {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from('public_links')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async createPublicLink(linkInput) {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from('public_links')
+      .insert(linkInput)
+      .select('*')
+      .single();
+
     if (error) throw error;
     return data;
   },
@@ -73,6 +122,18 @@ export const api = {
       .eq('id', linkData.project_id)
       .maybeSingle();
     
+    if (error) throw error;
+    return data;
+  },
+
+  async createTask(taskInput) {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from('tasks')
+      .insert(taskInput)
+      .select('*')
+      .single();
+
     if (error) throw error;
     return data;
   },
@@ -138,12 +199,18 @@ export const api = {
     if (error) throw error;
     
     if (transaction.amount < 0) {
+      const { data: clientRecord, error: clientError } = await client
+        .from('clients')
+        .select('credits_available')
+        .eq('id', transaction.client_id)
+        .single();
+
+      if (clientError) throw clientError;
+
       await client
         .from('clients')
         .update({ 
-          credits_available: client.rpc('increment', { 
-            x: transaction.amount 
-          }) 
+          credits_available: (clientRecord?.credits_available || 0) + transaction.amount
         })
         .eq('id', transaction.client_id);
     }

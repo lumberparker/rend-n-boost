@@ -15,7 +15,7 @@ export async function renderDashboard(user, creative) {
     ]);
 
     const pendingTasks = tasks.filter(t => t.status === 'pending');
-    const activeTasks = tasks.filter(t => ['approved', 'in_progress'].includes(t.status));
+    const activeTasks = tasks.filter(t => ['approved', 'in_progress', 'delivered', 'revision_requested', 'counter_proposed'].includes(t.status));
     const totalCreditsAvailable = clients.reduce((sum, c) => sum + c.credits_available, 0);
 
     app.innerHTML = '';
@@ -124,8 +124,8 @@ function renderPendingTasks(tasks, projects) {
               <button class="button button--success button--sm approve-task" data-id="${task.id}">
                 Aprobar
               </button>
-              <button class="button button--outline button--sm edit-task" data-id="${task.id}">
-                Editar
+              <button class="button button--outline button--sm counter-task" data-id="${task.id}">
+                Contrapropuesta
               </button>
               <button class="button button--danger button--sm reject-task" data-id="${task.id}">
                 Rechazar
@@ -148,6 +148,13 @@ function renderPendingTasks(tasks, projects) {
     btn.addEventListener('click', async (e) => {
       const taskId = e.target.getAttribute('data-id');
       await rejectTask(taskId);
+    });
+  });
+
+  container.querySelectorAll('.counter-task').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const taskId = e.target.getAttribute('data-id');
+      await counterTask(taskId);
     });
   });
 }
@@ -204,9 +211,16 @@ function renderActiveProjects(projects) {
 
 async function approveTask(taskId) {
   try {
+    const tasks = await api.getTasks();
+    const selectedTask = tasks.find((item) => item.id === taskId);
+    if (!selectedTask) {
+      throw new Error('Tarea no encontrada');
+    }
+
     const task = await api.updateTask(taskId, {
       status: 'approved',
-      credits_approved: null
+      credits_approved: selectedTask.credits_estimated,
+      credits_counter: null
     });
 
     const project = await api.getProject(task.project_id);
@@ -222,6 +236,33 @@ async function approveTask(taskId) {
     location.reload();
   } catch (error) {
     alert('Error al aprobar tarea: ' + error.message);
+  }
+}
+
+async function counterTask(taskId) {
+  try {
+    const tasks = await api.getTasks();
+    const task = tasks.find((item) => item.id === taskId);
+    if (!task) {
+      throw new Error('Tarea no encontrada');
+    }
+
+    const counterCredits = window.prompt('¿Cuántos créditos propones para esta tarea?', String(task.credits_estimated));
+    if (!counterCredits) {
+      return;
+    }
+
+    const creativeNotes = window.prompt('Notas para el cliente sobre la contrapropuesta (opcional):', task.creative_notes || '') || '';
+
+    await api.updateTask(taskId, {
+      status: 'counter_proposed',
+      credits_counter: Number(counterCredits),
+      creative_notes: creativeNotes
+    });
+
+    location.reload();
+  } catch (error) {
+    alert('Error al enviar contrapropuesta: ' + error.message);
   }
 }
 

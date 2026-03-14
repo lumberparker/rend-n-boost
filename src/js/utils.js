@@ -28,8 +28,11 @@ export function formatDate(dateString) {
 export function getStatusBadgeClass(status) {
   const statusMap = {
     pending: 'badge--warning',
+    counter_proposed: 'badge--warning',
     approved: 'badge--primary',
     in_progress: 'badge--primary',
+    delivered: 'badge--primary',
+    revision_requested: 'badge--warning',
     completed: 'badge--success',
     rejected: 'badge--error',
     blocked: 'badge--error'
@@ -40,8 +43,11 @@ export function getStatusBadgeClass(status) {
 export function getStatusLabel(status) {
   const labelMap = {
     pending: 'Pendiente',
+    counter_proposed: 'Contrapropuesta',
     approved: 'Aprobada',
     in_progress: 'En Progreso',
+    delivered: 'Entregada',
+    revision_requested: 'Cambios solicitados',
     completed: 'Completada',
     rejected: 'Rechazada',
     blocked: 'Bloqueada'
@@ -58,4 +64,20 @@ export function showToast(message, type = 'success') {
   setTimeout(() => {
     toast.remove();
   }, 3000);
+}
+
+export async function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const input = document.createElement('textarea');
+  input.value = text;
+  input.style.position = 'fixed';
+  input.style.opacity = '0';
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand('copy');
+  input.remove();
 }

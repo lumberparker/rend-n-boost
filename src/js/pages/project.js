@@ -9,7 +9,10 @@ export async function renderProject(params, user, creative) {
   showLoading(app);
 
   try {
-    const project = await api.getProject(params.id);
+    const [project, publicLink] = await Promise.all([
+      api.getProject(params.id),
+      api.getProjectPublicLink(params.id)
+    ]);
 
     if (!project) {
       showError(app, 'Proyecto no encontrado');
@@ -32,9 +35,12 @@ export async function renderProject(params, user, creative) {
                 ${project.client.credits_available} créditos disponibles
               </p>
             </div>
-            <button class="button button--outline" id="backToDashboardBtn">
-              Volver al panel
-            </button>
+            <div class="wizard__actions">
+              ${publicLink ? '<button class="button button--outline" id="copyClientPortalBtn">Copiar portal cliente</button>' : ''}
+              <button class="button button--outline" id="backToDashboardBtn">
+                Volver al panel
+              </button>
+            </div>
           </div>
 
           <div class="tabs">
@@ -82,6 +88,13 @@ export async function renderProject(params, user, creative) {
       router.navigate('/');
     });
 
+    const copyClientPortalBtn = document.getElementById('copyClientPortalBtn');
+    copyClientPortalBtn?.addEventListener('click', async () => {
+      const { copyToClipboard, showToast } = await import('../utils.js');
+      await copyToClipboard(`${window.location.origin}/?token=${publicLink.token}`);
+      showToast('Portal del cliente copiado');
+    });
+
   } catch (error) {
     showError(app, 'Error al cargar proyecto: ' + error.message);
   }
@@ -95,7 +108,7 @@ function renderView(view, project, creative, onProjectUpdated) {
       renderKanbanView(container, project);
       break;
     case 'list':
-      renderListView(container, project);
+      renderListView(container, project, onProjectUpdated);
       break;
     case 'settings':
       renderSettingsView(container, project, creative, onProjectUpdated);
@@ -106,8 +119,11 @@ function renderView(view, project, creative, onProjectUpdated) {
 function renderKanbanView(container, project) {
   const columns = [
     { id: 'pending', title: 'Pendiente', tasks: [] },
+    { id: 'counter_proposed', title: 'Contrapropuesta', tasks: [] },
     { id: 'approved', title: 'Aprobada', tasks: [] },
     { id: 'in_progress', title: 'En Progreso', tasks: [] },
+    { id: 'delivered', title: 'Entregada', tasks: [] },
+    { id: 'revision_requested', title: 'Cambios', tasks: [] },
     { id: 'completed', title: 'Completada', tasks: [] }
   ];
 
@@ -142,6 +158,9 @@ function renderKanbanView(container, project) {
                   <span class="kanban-card__date">${formatDate(task.committed_date || task.requested_date)}</span>
                   ${task.is_urgent ? '<span class="badge badge--error">Urgente</span>' : ''}
                 </div>
+                ${task.creative_notes ? `<p class="form-helper" style="margin-top: 0.75rem;">Nota creativa: ${task.creative_notes}</p>` : ''}
+                ${task.client_feedback ? `<p class="form-helper" style="margin-top: 0.5rem;">Feedback cliente: ${task.client_feedback}</p>` : ''}
+                ${task.deliverable_url ? `<p class="form-helper" style="margin-top: 0.5rem;"><a href="${task.deliverable_url}" target="_blank" rel="noreferrer">Abrir entrega</a></p>` : ''}
               </div>
             `).join('')}
           </div>
@@ -151,7 +170,7 @@ function renderKanbanView(container, project) {
   `;
 }
 
-function renderListView(container, project) {
+function renderListView(container, project, onProjectUpdated) {
   container.innerHTML = `
     <div class="table-wrapper">
       <table class="table">
@@ -161,13 +180,14 @@ function renderListView(container, project) {
             <th>Estado</th>
             <th>Créditos</th>
             <th>Fecha Solicitada</th>
-            <th>Fecha Comprometida</th>
+            <th>Entrega</th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
           ${project.tasks.length === 0 ? `
             <tr>
-              <td colspan="5" style="text-align: center; padding: 2rem;">
+              <td colspan="6" style="text-align: center; padding: 2rem;">
                 No hay tareas en este proyecto
               </td>
             </tr>
@@ -176,21 +196,26 @@ function renderListView(container, project) {
               <td>
                 <strong>${task.title}</strong>
                 ${task.is_urgent ? '<span class="badge badge--error" style="margin-left: 0.5rem;">Urgente</span>' : ''}
+                ${task.creative_notes ? `<div class="form-helper">Nota creativa: ${task.creative_notes}</div>` : ''}
+                ${task.client_feedback ? `<div class="form-helper">Feedback cliente: ${task.client_feedback}</div>` : ''}
               </td>
               <td>
                 <span class="badge ${getStatusBadgeClass(task.status)}">
                   ${getStatusLabel(task.status)}
                 </span>
               </td>
-              <td>${task.credits_approved || task.credits_estimated}</td>
+              <td>${renderCreditsSummary(task)}</td>
               <td>${formatDate(task.requested_date)}</td>
-              <td>${formatDate(task.committed_date)}</td>
+              <td>${task.deliverable_url ? `<a href="${task.deliverable_url}" target="_blank" rel="noreferrer">Ver link</a>` : '-'}</td>
+              <td>${renderCreativeTaskActions(task)}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
     </div>
   `;
+
+  attachCreativeTaskActions(container, project.id, onProjectUpdated);
 }
 
 function renderSettingsView(container, project, creative, onProjectUpdated) {
@@ -332,4 +357,159 @@ function renderSettingsView(container, project, creative, onProjectUpdated) {
       showToast('No se pudieron guardar las reglas del proyecto', 'error');
     }
   });
+}
+
+function renderCreditsSummary(task) {
+  if (task.status === 'counter_proposed' && task.credits_counter) {
+    return `${task.credits_estimated} -> ${task.credits_counter}`;
+  }
+
+  return task.credits_approved || task.credits_counter || task.credits_estimated;
+}
+
+function renderCreativeTaskActions(task) {
+  if (task.status === 'pending') {
+    return `
+      <div class="table-actions">
+        <button class="button button--success button--sm creative-approve-task" data-id="${task.id}">Aprobar</button>
+        <button class="button button--outline button--sm creative-counter-task" data-id="${task.id}">Contrapropuesta</button>
+        <button class="button button--danger button--sm creative-reject-task" data-id="${task.id}">Rechazar</button>
+      </div>
+    `;
+  }
+
+  if (['approved', 'revision_requested'].includes(task.status)) {
+    return `
+      <div class="table-actions">
+        <button class="button button--outline button--sm creative-start-task" data-id="${task.id}">Iniciar</button>
+        <button class="button button--primary button--sm creative-deliver-task" data-id="${task.id}">Entregar</button>
+      </div>
+    `;
+  }
+
+  if (task.status === 'in_progress') {
+    return `
+      <div class="table-actions">
+        <button class="button button--primary button--sm creative-deliver-task" data-id="${task.id}">Entregar</button>
+      </div>
+    `;
+  }
+
+  if (task.status === 'counter_proposed') {
+    return '<span class="form-helper">Esperando aprobación del cliente</span>';
+  }
+
+  if (task.status === 'delivered') {
+    return '<span class="form-helper">Esperando revisión del cliente</span>';
+  }
+
+  return '<span class="form-helper">Sin acciones</span>';
+}
+
+function attachCreativeTaskActions(container, projectId, onProjectUpdated) {
+  container.querySelectorAll('.creative-approve-task').forEach((button) => {
+    button.addEventListener('click', async () => {
+      await approveProjectTask(button.getAttribute('data-id'), projectId, onProjectUpdated);
+    });
+  });
+
+  container.querySelectorAll('.creative-counter-task').forEach((button) => {
+    button.addEventListener('click', async () => {
+      await counterProjectTask(button.getAttribute('data-id'), projectId, onProjectUpdated);
+    });
+  });
+
+  container.querySelectorAll('.creative-reject-task').forEach((button) => {
+    button.addEventListener('click', async () => {
+      await rejectProjectTask(button.getAttribute('data-id'), projectId, onProjectUpdated);
+    });
+  });
+
+  container.querySelectorAll('.creative-start-task').forEach((button) => {
+    button.addEventListener('click', async () => {
+      await updateProjectTaskStatus(button.getAttribute('data-id'), projectId, { status: 'in_progress' }, onProjectUpdated, 'Tarea iniciada');
+    });
+  });
+
+  container.querySelectorAll('.creative-deliver-task').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const taskId = button.getAttribute('data-id');
+      const deliverableUrl = window.prompt('Pega el link de Dropbox o Google Drive:');
+      if (!deliverableUrl) {
+        return;
+      }
+
+      const creativeNotes = window.prompt('Notas para el cliente sobre la entrega (opcional):') || '';
+      await updateProjectTaskStatus(taskId, projectId, {
+        status: 'delivered',
+        deliverable_url: deliverableUrl,
+        creative_notes: creativeNotes,
+        delivered_at: new Date().toISOString()
+      }, onProjectUpdated, 'Entrega enviada');
+    });
+  });
+}
+
+async function approveProjectTask(taskId, projectId, onProjectUpdated) {
+  const project = await api.getProject(projectId);
+  const task = project.tasks.find((item) => item.id === taskId);
+  if (!task) {
+    showToast('No se encontró la tarea', 'error');
+    return;
+  }
+
+  try {
+    await api.updateTask(taskId, {
+      status: 'approved',
+      credits_approved: task.credits_estimated,
+      credits_counter: null,
+      creative_notes: null
+    });
+    showToast('Tarea aprobada');
+    onProjectUpdated(await api.getProject(projectId));
+  } catch (error) {
+    showToast('No se pudo aprobar la tarea', 'error');
+  }
+}
+
+async function counterProjectTask(taskId, projectId, onProjectUpdated) {
+  const project = await api.getProject(projectId);
+  const task = project.tasks.find((item) => item.id === taskId);
+  if (!task) {
+    showToast('No se encontró la tarea', 'error');
+    return;
+  }
+
+  const counterCredits = window.prompt('Créditos propuestos por el creativo:', String(task.credits_estimated));
+  if (!counterCredits) {
+    return;
+  }
+
+  const creativeNotes = window.prompt('Explica la contrapropuesta (opcional):', task.creative_notes || '') || '';
+
+  try {
+    await api.updateTask(taskId, {
+      status: 'counter_proposed',
+      credits_counter: Number(counterCredits),
+      creative_notes: creativeNotes
+    });
+    showToast('Contrapropuesta enviada');
+    onProjectUpdated(await api.getProject(projectId));
+  } catch (error) {
+    showToast('No se pudo enviar la contrapropuesta', 'error');
+  }
+}
+
+async function rejectProjectTask(taskId, projectId, onProjectUpdated) {
+  await updateProjectTaskStatus(taskId, projectId, { status: 'rejected' }, onProjectUpdated, 'Tarea rechazada');
+}
+
+async function updateProjectTaskStatus(taskId, projectId, updates, onProjectUpdated, successMessage) {
+  try {
+    await api.updateTask(taskId, updates);
+    showToast(successMessage);
+    onProjectUpdated(await api.getProject(projectId));
+  } catch (error) {
+    showToast('No se pudo actualizar la tarea', 'error');
+  }
 }

@@ -5,6 +5,7 @@ import { renderLogin } from './js/pages/login';
 import { renderDashboard } from './js/pages/dashboard';
 import { renderClientView } from './js/pages/client-view';
 import { renderClients } from './js/pages/clients';
+import { renderNewProject } from './js/pages/new-project';
 import { renderProject } from './js/pages/project';
 import { renderSettings } from './js/pages/settings';
 import { isSuperAdminEmail } from './js/super-admin';
@@ -129,15 +130,7 @@ function registerRoutes(user, creative) {
     await renderSettings(user, creative, onCreativeUpdated);
   });
   router.addRoute('/projects/new', async () => {
-    const app = document.getElementById('app');
-    if (app) {
-      app.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state__title">Creación de proyectos</div>
-          <div class="empty-state__description">La creación guiada de proyectos aún no está implementada.</div>
-        </div>
-      `;
-    }
+    await renderNewProject(user, creative);
   });
   router.addRoute('/projects/:id', async (params) => {
     await renderProject(params, user, creative);
