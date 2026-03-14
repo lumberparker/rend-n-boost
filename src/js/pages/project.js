@@ -1,17 +1,8 @@
 import { api } from '../api.js';
 import { renderHeader } from '../components/header.js';
 import { router } from '../router.js';
+import { DAY_OPTIONS, formatEnabledDays, getProjectRuleConfig } from '../rules.js';
 import { showLoading, showError, formatDate, getStatusBadgeClass, getStatusLabel, showToast } from '../utils.js';
-
-const DAY_OPTIONS = [
-  { key: 'monday', label: 'Lunes' },
-  { key: 'tuesday', label: 'Martes' },
-  { key: 'wednesday', label: 'Miércoles' },
-  { key: 'thursday', label: 'Jueves' },
-  { key: 'friday', label: 'Viernes' },
-  { key: 'saturday', label: 'Sábado' },
-  { key: 'sunday', label: 'Domingo' }
-];
 
 export async function renderProject(params, user, creative) {
   const app = document.getElementById('app');
@@ -203,33 +194,41 @@ function renderListView(container, project) {
 }
 
 function renderSettingsView(container, project, creative, onProjectUpdated) {
-  const rules = getProjectRules(project, creative);
+  const rules = getProjectRuleConfig(project, creative);
 
   container.innerHTML = `
     <div class="dashboard__grid project-settings-grid">
       <div class="card">
         <div class="card__header">
           <div>
-            <h3 class="card__title">Reglas del Proyecto</h3>
-            <p class="card__subtitle">Estas reglas afectan la planificación y el cálculo operativo del proyecto.</p>
+            <h3 class="card__title">Overrides del Proyecto</h3>
+            <p class="card__subtitle">Si activas overrides, este proyecto deja de usar los defaults de tu cuenta.</p>
           </div>
         </div>
         <div class="card__body">
           <form id="projectRulesForm">
+            <div class="form-group">
+              <label class="checkbox-card">
+                <input type="checkbox" id="useProjectOverrides" ${rules.hasOverrides ? 'checked' : ''} />
+                <span>Usar reglas específicas para este proyecto</span>
+              </label>
+              <span class="form-helper">Si lo desactivas, el proyecto hereda automáticamente tus defaults de cuenta.</span>
+            </div>
+
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label" for="slaDays">SLA mínimo (días)</label>
-                <input id="slaDays" name="sla_days" type="number" min="1" class="form-input" value="${rules.sla_days}" required />
+                <input id="slaDays" name="sla_days" type="number" min="1" class="form-input" value="${rules.overrides.sla_days}" placeholder="${rules.defaults.sla_days}" ${rules.hasOverrides ? 'required' : 'disabled'} />
               </div>
               <div class="form-group">
                 <label class="form-label" for="maxCreditsPerDay">Capacidad diaria</label>
-                <input id="maxCreditsPerDay" name="max_credits_per_day" type="number" min="1" class="form-input" value="${rules.max_credits_per_day}" required />
+                <input id="maxCreditsPerDay" name="max_credits_per_day" type="number" min="1" class="form-input" value="${rules.overrides.max_credits_per_day}" placeholder="${rules.defaults.max_credits_per_day}" ${rules.hasOverrides ? 'required' : 'disabled'} />
               </div>
             </div>
 
             <div class="form-group">
               <label class="form-label" for="urgencyMultiplier">Multiplicador de urgencia</label>
-              <input id="urgencyMultiplier" name="urgency_multiplier" type="number" min="1" step="0.1" class="form-input" value="${rules.urgency_multiplier}" required />
+              <input id="urgencyMultiplier" name="urgency_multiplier" type="number" min="1" step="0.1" class="form-input" value="${rules.overrides.urgency_multiplier}" placeholder="${rules.defaults.urgency_multiplier}" ${rules.hasOverrides ? 'required' : 'disabled'} />
               <span class="form-helper">Ejemplo: 1.5 aumenta el costo operativo de una tarea urgente en 50%.</span>
             </div>
 
@@ -238,7 +237,7 @@ function renderSettingsView(container, project, creative, onProjectUpdated) {
               <div class="checkbox-grid">
                 ${DAY_OPTIONS.map((day) => `
                   <label class="checkbox-card">
-                    <input type="checkbox" name="work_days" value="${day.key}" ${rules.work_days[day.key] ? 'checked' : ''} />
+                    <input type="checkbox" name="work_days" value="${day.key}" ${rules.overrides.work_days[day.key] ? 'checked' : ''} ${rules.hasOverrides ? '' : 'disabled'} />
                     <span>${day.label}</span>
                   </label>
                 `).join('')}
@@ -263,19 +262,23 @@ function renderSettingsView(container, project, creative, onProjectUpdated) {
           <div class="project-rule-list">
             <div class="project-rule-item">
               <span class="project-rule-label">SLA mínimo</span>
-              <strong>${rules.sla_days} días</strong>
+              <strong>${rules.effective.sla_days} días</strong>
             </div>
             <div class="project-rule-item">
               <span class="project-rule-label">Capacidad diaria</span>
-              <strong>${rules.max_credits_per_day} créditos</strong>
+              <strong>${rules.effective.max_credits_per_day} créditos</strong>
             </div>
             <div class="project-rule-item">
               <span class="project-rule-label">Urgencia</span>
-              <strong>x${rules.urgency_multiplier}</strong>
+              <strong>x${rules.effective.urgency_multiplier}</strong>
             </div>
             <div class="project-rule-item">
               <span class="project-rule-label">Días laborales</span>
-              <strong>${formatEnabledDays(rules.work_days)}</strong>
+              <strong>${formatEnabledDays(rules.effective.work_days)}</strong>
+            </div>
+            <div class="project-rule-item">
+              <span class="project-rule-label">Origen</span>
+              <strong>${rules.hasOverrides ? 'Override de proyecto' : 'Defaults de la cuenta'}</strong>
             </div>
           </div>
         </div>
@@ -284,52 +287,49 @@ function renderSettingsView(container, project, creative, onProjectUpdated) {
   `;
 
   const form = document.getElementById('projectRulesForm');
+  const useProjectOverrides = document.getElementById('useProjectOverrides');
+  const overrideFields = form?.querySelectorAll('input[name="sla_days"], input[name="max_credits_per_day"], input[name="urgency_multiplier"], input[name="work_days"]');
+
+  useProjectOverrides?.addEventListener('change', () => {
+    const enabled = useProjectOverrides.checked;
+    overrideFields?.forEach((field) => {
+      field.disabled = !enabled;
+      if (field.type !== 'checkbox') {
+        field.required = enabled;
+      }
+    });
+  });
+
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const formData = new FormData(form);
-    const workDays = DAY_OPTIONS.reduce((accumulator, day) => {
-      accumulator[day.key] = formData.getAll('work_days').includes(day.key);
-      return accumulator;
-    }, {});
+    const usingOverrides = useProjectOverrides?.checked;
 
     try {
-      const updatedProject = await api.updateProject(project.id, {
-        sla_days: Number(formData.get('sla_days')),
-        max_credits_per_day: Number(formData.get('max_credits_per_day')),
-        urgency_multiplier: Number(formData.get('urgency_multiplier')),
-        work_days: workDays
-      });
+      const updates = usingOverrides
+        ? {
+            sla_days: Number(formData.get('sla_days')),
+            max_credits_per_day: Number(formData.get('max_credits_per_day')),
+            urgency_multiplier: Number(formData.get('urgency_multiplier')),
+            work_days: DAY_OPTIONS.reduce((accumulator, day) => {
+              accumulator[day.key] = formData.getAll('work_days').includes(day.key);
+              return accumulator;
+            }, {})
+          }
+        : {
+            sla_days: null,
+            max_credits_per_day: null,
+            urgency_multiplier: null,
+            work_days: null
+          };
 
-      showToast('Reglas del proyecto actualizadas');
+      const updatedProject = await api.updateProject(project.id, updates);
+
+      showToast(usingOverrides ? 'Overrides del proyecto actualizados' : 'El proyecto volvió a usar los defaults de la cuenta');
       onProjectUpdated(updatedProject);
     } catch (error) {
       showToast('No se pudieron guardar las reglas del proyecto', 'error');
     }
   });
-}
-
-function getProjectRules(project, creative) {
-  return {
-    sla_days: project.sla_days ?? creative?.sla_days ?? 4,
-    max_credits_per_day: project.max_credits_per_day ?? creative?.max_credits_per_day ?? 6,
-    urgency_multiplier: project.urgency_multiplier ?? creative?.urgency_multiplier ?? 1.5,
-    work_days: {
-      monday: project.work_days?.monday ?? creative?.work_days?.monday ?? true,
-      tuesday: project.work_days?.tuesday ?? creative?.work_days?.tuesday ?? true,
-      wednesday: project.work_days?.wednesday ?? creative?.work_days?.wednesday ?? true,
-      thursday: project.work_days?.thursday ?? creative?.work_days?.thursday ?? true,
-      friday: project.work_days?.friday ?? creative?.work_days?.friday ?? true,
-      saturday: project.work_days?.saturday ?? creative?.work_days?.saturday ?? false,
-      sunday: project.work_days?.sunday ?? creative?.work_days?.sunday ?? false
-    }
-  };
-}
-
-function formatEnabledDays(workDays) {
-  const labels = DAY_OPTIONS
-    .filter((day) => workDays[day.key])
-    .map((day) => day.label);
-
-  return labels.length > 0 ? labels.join(', ') : 'Sin días definidos';
 }

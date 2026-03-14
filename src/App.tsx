@@ -6,6 +6,7 @@ import { renderDashboard } from './js/pages/dashboard';
 import { renderClientView } from './js/pages/client-view';
 import { renderClients } from './js/pages/clients';
 import { renderProject } from './js/pages/project';
+import { renderSettings } from './js/pages/settings';
 import { isSuperAdminEmail } from './js/super-admin';
 import { router } from './js/router';
 
@@ -110,12 +111,22 @@ function App() {
 }
 
 function registerRoutes(user, creative) {
+  const onCreativeUpdated = (updatedCreative) => {
+    Object.assign(creative, updatedCreative);
+  };
+
   router.routes = {};
   router.addRoute('/', async () => {
     await renderDashboard(user, creative);
   });
   router.addRoute('/clients', async () => {
     await renderClients(user, creative);
+  });
+  router.addRoute('/projects', async () => {
+    await renderDashboard(user, creative);
+  });
+  router.addRoute('/settings', async () => {
+    await renderSettings(user, creative, onCreativeUpdated);
   });
   router.addRoute('/projects/new', async () => {
     const app = document.getElementById('app');

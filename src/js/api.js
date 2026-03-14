@@ -114,6 +114,19 @@ export const api = {
     return data;
   },
 
+  async updateCreative(id, updates) {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from('creatives')
+      .update(updates)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
   async addCreditsTransaction(transaction) {
     const client = requireSupabase();
     const { data, error } = await client

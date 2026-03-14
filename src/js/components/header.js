@@ -12,6 +12,7 @@ export function renderHeader(user, creative) {
         <a href="/" class="header__link">Panel</a>
         <a href="/projects" class="header__link">Proyectos</a>
         <a href="/clients" class="header__link">Clientes</a>
+        <a href="/settings" class="header__link">Settings</a>
       </nav>
       <div class="header__user">
         ${superAdminBadge}
@@ -28,6 +29,14 @@ export function renderHeader(user, creative) {
       await auth.signOut();
     });
   }
+
+  header.querySelectorAll('.header__link').forEach((link) => {
+    link.addEventListener('click', async (event) => {
+      event.preventDefault();
+      const { router } = await import('../router.js');
+      router.navigate(link.getAttribute('href'));
+    });
+  });
   
   return header;
 }
