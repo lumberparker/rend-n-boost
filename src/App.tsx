@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import './css/styles.css';
-import { supabase } from './js/api';
+import { supabase, supabaseConfigError } from './js/api';
 import { renderLogin } from './js/pages/login';
 import { renderDashboard } from './js/pages/dashboard';
 import { renderClientView } from './js/pages/client-view';
@@ -15,6 +15,10 @@ function App() {
 
   async function initApp() {
     try {
+      if (supabaseConfigError || !supabase) {
+        throw new Error(supabaseConfigError || 'Supabase is not configured.');
+      }
+
       const urlParams = new URLSearchParams(window.location.search);
       const token = urlParams.get('token');
 
