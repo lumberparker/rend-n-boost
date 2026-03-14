@@ -74,6 +74,10 @@
   font-size: var(--font-size-lg);
 }
 
+.button--full {
+  width: 100%;
+}
+
 .button--icon {
   padding: var(--spacing-sm);
   width: 2.5rem;

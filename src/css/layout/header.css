@@ -30,6 +30,18 @@
   gap: var(--spacing-lg);
 }
 
+.header__link {
+  color: var(--color-text-secondary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.header__link:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-secondary);
+}
+
 .header__nav-item {
   color: var(--color-text-secondary);
   padding: var(--spacing-sm) var(--spacing-md);
@@ -51,4 +63,14 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+}
+
+.header__user {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.header__user-name {
+  font-weight: var(--font-weight-medium);
 }

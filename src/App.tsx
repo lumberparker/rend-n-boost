@@ -4,6 +4,7 @@ import { supabase, supabaseConfigError } from './js/api';
 import { renderLogin } from './js/pages/login';
 import { renderDashboard } from './js/pages/dashboard';
 import { renderClientView } from './js/pages/client-view';
+import { isSuperAdminEmail } from './js/super-admin';
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -36,6 +37,8 @@ function App() {
         return;
       }
 
+      const isSuperAdmin = isSuperAdminEmail(session.user.email);
+
       const { data: creative } = await supabase
         .from('creatives')
         .select('*')
@@ -52,13 +55,16 @@ function App() {
           });
       }
 
-      await renderDashboard(session.user, creative || {
-        id: session.user.id,
-        name: session.user.email?.split('@')[0] || 'Creative',
-        email: session.user.email || '',
-        sla_days: 4,
-        max_credits_per_day: 6,
-        urgency_multiplier: 1.5
+      await renderDashboard(session.user, {
+        ...(creative || {
+          id: session.user.id,
+          name: session.user.email?.split('@')[0] || 'Creative',
+          email: session.user.email || '',
+          sla_days: 4,
+          max_credits_per_day: 6,
+          urgency_multiplier: 1.5
+        }),
+        is_super_admin: isSuperAdmin
       });
 
       setLoading(false);

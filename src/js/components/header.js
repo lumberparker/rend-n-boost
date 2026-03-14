@@ -2,6 +2,9 @@ export function renderHeader(user, creative) {
   const header = document.createElement('header');
   header.className = 'header';
   const userName = (creative && creative.name) || (user && user.email) || 'Usuario';
+  const superAdminBadge = creative?.is_super_admin
+    ? '<span class="badge badge--warning">Super Admin</span>'
+    : '';
   header.innerHTML = `
     <div class="header__container">
       <div class="header__brand">CreativeFlow</div>
@@ -11,6 +14,7 @@ export function renderHeader(user, creative) {
         <a href="/clients" class="header__link">Clientes</a>
       </nav>
       <div class="header__user">
+        ${superAdminBadge}
         <span class="header__user-name">${userName}</span>
         <button class="button button--sm button--outline" id="logoutBtn">Salir</button>
       </div>

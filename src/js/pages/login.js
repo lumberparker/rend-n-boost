@@ -10,6 +10,14 @@ export function renderLogin() {
         <p style="text-align: center; color: var(--color-text-secondary); margin-bottom: 2rem;">
           Gestión de proyectos creativos basada en créditos
         </p>
+
+        <button type="button" class="button button--outline button--full" id="googleSignInBtn">
+          Continuar con Google
+        </button>
+
+        <div class="auth-divider">
+          <span>o usa email y contraseña</span>
+        </div>
         
         <form id="loginForm">
           <div class="form-group">
@@ -45,7 +53,19 @@ export function renderLogin() {
   `;
   
   const form = document.getElementById('loginForm');
+  const googleSignInBtn = document.getElementById('googleSignInBtn');
   const errorDiv = document.getElementById('loginError');
+
+  googleSignInBtn?.addEventListener('click', async () => {
+    errorDiv.style.display = 'none';
+
+    try {
+      await auth.signInWithGoogle();
+    } catch (error) {
+      errorDiv.textContent = error.message;
+      errorDiv.style.display = 'block';
+    }
+  });
   
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

@@ -20,6 +20,19 @@ export const auth = {
     return data;
   },
 
+  async signInWithGoogle() {
+    const client = requireSupabase();
+    const { data, error } = await client.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+
+    if (error) throw error;
+    return data;
+  },
+
   async signOut() {
     const client = requireSupabase();
     const { error } = await client.auth.signOut();

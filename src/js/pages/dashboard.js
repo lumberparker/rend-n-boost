@@ -28,7 +28,7 @@ export async function renderDashboard(user, creative) {
         <div class="dashboard">
           <div class="dashboard__header">
             <h1 class="dashboard__title">Panel de Control</h1>
-            <p class="dashboard__subtitle">Gestiona tus proyectos y clientes</p>
+            <p class="dashboard__subtitle">${creative?.is_super_admin ? 'Gestiona todos los proyectos y clientes' : 'Gestiona tus proyectos y clientes'}</p>
           </div>
 
           <div class="dashboard__stats">
