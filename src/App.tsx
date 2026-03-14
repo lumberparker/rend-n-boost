@@ -7,6 +7,7 @@ import { renderClientView } from './js/pages/client-view';
 
 function App() {
   const [loading, setLoading] = useState(true);
+  const [startupError, setStartupError] = useState<string | null>(null);
 
   useEffect(() => {
     initApp();
@@ -67,19 +68,29 @@ function App() {
       });
     } catch (error) {
       console.error('Error initializing app:', error);
+      setStartupError(error instanceof Error ? error.message : 'Unable to initialize the app.');
       setLoading(false);
     }
   }
 
-  if (loading) {
-    return (
-      <div className="loading">
-        <div className="spinner"></div>
-      </div>
-    );
-  }
-
-  return <div id="app"></div>;
+  return (
+    <>
+      {loading && (
+        <div className="loading">
+          <div className="spinner"></div>
+        </div>
+      )}
+      {!loading && startupError && (
+        <div className="auth-page">
+          <div className="auth-card">
+            <h1 className="auth-card__title">Startup Error</h1>
+            <p>{startupError}</p>
+          </div>
+        </div>
+      )}
+      <div id="app" className={loading || Boolean(startupError) ? 'hidden' : ''}></div>
+    </>
+  );
 }
 
 export default App;
