@@ -4,7 +4,10 @@ import { supabase, supabaseConfigError } from './js/api';
 import { renderLogin } from './js/pages/login';
 import { renderDashboard } from './js/pages/dashboard';
 import { renderClientView } from './js/pages/client-view';
+import { renderClients } from './js/pages/clients';
+import { renderProject } from './js/pages/project';
 import { isSuperAdminEmail } from './js/super-admin';
+import { router } from './js/router';
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -55,7 +58,7 @@ function App() {
           });
       }
 
-      await renderDashboard(session.user, {
+      const creativeProfile = {
         ...(creative || {
           id: session.user.id,
           name: session.user.email?.split('@')[0] || 'Creative',
@@ -65,7 +68,10 @@ function App() {
           urgency_multiplier: 1.5
         }),
         is_super_admin: isSuperAdmin
-      });
+      };
+
+      registerRoutes(session.user, creativeProfile);
+      await router.handleRoute();
 
       setLoading(false);
 
@@ -101,6 +107,41 @@ function App() {
       <div id="app" className={loading || Boolean(startupError) ? 'hidden' : ''}></div>
     </>
   );
+}
+
+function registerRoutes(user, creative) {
+  router.routes = {};
+  router.addRoute('/', async () => {
+    await renderDashboard(user, creative);
+  });
+  router.addRoute('/clients', async () => {
+    await renderClients(user, creative);
+  });
+  router.addRoute('/projects/new', async () => {
+    const app = document.getElementById('app');
+    if (app) {
+      app.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state__title">Creación de proyectos</div>
+          <div class="empty-state__description">La creación guiada de proyectos aún no está implementada.</div>
+        </div>
+      `;
+    }
+  });
+  router.addRoute('/projects/:id', async (params) => {
+    await renderProject(params, user, creative);
+  });
+  router.addRoute('/404', async () => {
+    const app = document.getElementById('app');
+    if (app) {
+      app.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state__title">Página no encontrada</div>
+          <div class="empty-state__description">La ruta solicitada no existe.</div>
+        </div>
+      `;
+    }
+  });
 }
 
 export default App;

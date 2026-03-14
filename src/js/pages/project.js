@@ -1,6 +1,17 @@
 import { api } from '../api.js';
 import { renderHeader } from '../components/header.js';
-import { showLoading, showError, formatDate, getStatusBadgeClass, getStatusLabel } from '../utils.js';
+import { router } from '../router.js';
+import { showLoading, showError, formatDate, getStatusBadgeClass, getStatusLabel, showToast } from '../utils.js';
+
+const DAY_OPTIONS = [
+  { key: 'monday', label: 'Lunes' },
+  { key: 'tuesday', label: 'Martes' },
+  { key: 'wednesday', label: 'Miércoles' },
+  { key: 'thursday', label: 'Jueves' },
+  { key: 'friday', label: 'Viernes' },
+  { key: 'saturday', label: 'Sábado' },
+  { key: 'sunday', label: 'Domingo' }
+];
 
 export async function renderProject(params, user, creative) {
   const app = document.getElementById('app');
@@ -30,6 +41,9 @@ export async function renderProject(params, user, creative) {
                 ${project.client.credits_available} créditos disponibles
               </p>
             </div>
+            <button class="button button--outline" id="backToDashboardBtn">
+              Volver al panel
+            </button>
           </div>
 
           <div class="tabs">
@@ -39,6 +53,9 @@ export async function renderProject(params, user, creative) {
               </button>
               <button class="tabs__button" data-view="list">
                 Lista de Tareas
+              </button>
+              <button class="tabs__button" data-view="settings">
+                Configuración
               </button>
             </div>
           </div>
@@ -51,7 +68,13 @@ export async function renderProject(params, user, creative) {
     app.appendChild(main);
 
     let currentView = 'kanban';
-    renderView(currentView, project);
+    let currentProject = project;
+    const handleProjectUpdated = (updatedProject) => {
+      currentProject = updatedProject;
+      renderView(currentView, currentProject, creative, handleProjectUpdated);
+    };
+
+    renderView(currentView, currentProject, creative, handleProjectUpdated);
 
     const tabs = app.querySelectorAll('.tabs__button');
     tabs.forEach(tab => {
@@ -59,8 +82,13 @@ export async function renderProject(params, user, creative) {
         tabs.forEach(t => t.classList.remove('tabs__button--active'));
         tab.classList.add('tabs__button--active');
         currentView = tab.getAttribute('data-view');
-        renderView(currentView, project);
+        renderView(currentView, currentProject, creative, handleProjectUpdated);
       });
+    });
+
+    const backToDashboardBtn = document.getElementById('backToDashboardBtn');
+    backToDashboardBtn?.addEventListener('click', () => {
+      router.navigate('/');
     });
 
   } catch (error) {
@@ -68,7 +96,7 @@ export async function renderProject(params, user, creative) {
   }
 }
 
-function renderView(view, project) {
+function renderView(view, project, creative, onProjectUpdated) {
   const container = document.getElementById('viewContainer');
 
   switch (view) {
@@ -77,6 +105,9 @@ function renderView(view, project) {
       break;
     case 'list':
       renderListView(container, project);
+      break;
+    case 'settings':
+      renderSettingsView(container, project, creative, onProjectUpdated);
       break;
   }
 }
@@ -169,4 +200,136 @@ function renderListView(container, project) {
       </table>
     </div>
   `;
+}
+
+function renderSettingsView(container, project, creative, onProjectUpdated) {
+  const rules = getProjectRules(project, creative);
+
+  container.innerHTML = `
+    <div class="dashboard__grid project-settings-grid">
+      <div class="card">
+        <div class="card__header">
+          <div>
+            <h3 class="card__title">Reglas del Proyecto</h3>
+            <p class="card__subtitle">Estas reglas afectan la planificación y el cálculo operativo del proyecto.</p>
+          </div>
+        </div>
+        <div class="card__body">
+          <form id="projectRulesForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="slaDays">SLA mínimo (días)</label>
+                <input id="slaDays" name="sla_days" type="number" min="1" class="form-input" value="${rules.sla_days}" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="maxCreditsPerDay">Capacidad diaria</label>
+                <input id="maxCreditsPerDay" name="max_credits_per_day" type="number" min="1" class="form-input" value="${rules.max_credits_per_day}" required />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="urgencyMultiplier">Multiplicador de urgencia</label>
+              <input id="urgencyMultiplier" name="urgency_multiplier" type="number" min="1" step="0.1" class="form-input" value="${rules.urgency_multiplier}" required />
+              <span class="form-helper">Ejemplo: 1.5 aumenta el costo operativo de una tarea urgente en 50%.</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Días laborales del proyecto</label>
+              <div class="checkbox-grid">
+                ${DAY_OPTIONS.map((day) => `
+                  <label class="checkbox-card">
+                    <input type="checkbox" name="work_days" value="${day.key}" ${rules.work_days[day.key] ? 'checked' : ''} />
+                    <span>${day.label}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="card__footer">
+              <button type="submit" class="button button--primary">Guardar reglas</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card__header">
+          <div>
+            <h3 class="card__title">Resumen activo</h3>
+            <p class="card__subtitle">Configuración actualmente aplicada a este proyecto.</p>
+          </div>
+        </div>
+        <div class="card__body">
+          <div class="project-rule-list">
+            <div class="project-rule-item">
+              <span class="project-rule-label">SLA mínimo</span>
+              <strong>${rules.sla_days} días</strong>
+            </div>
+            <div class="project-rule-item">
+              <span class="project-rule-label">Capacidad diaria</span>
+              <strong>${rules.max_credits_per_day} créditos</strong>
+            </div>
+            <div class="project-rule-item">
+              <span class="project-rule-label">Urgencia</span>
+              <strong>x${rules.urgency_multiplier}</strong>
+            </div>
+            <div class="project-rule-item">
+              <span class="project-rule-label">Días laborales</span>
+              <strong>${formatEnabledDays(rules.work_days)}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const form = document.getElementById('projectRulesForm');
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(form);
+    const workDays = DAY_OPTIONS.reduce((accumulator, day) => {
+      accumulator[day.key] = formData.getAll('work_days').includes(day.key);
+      return accumulator;
+    }, {});
+
+    try {
+      const updatedProject = await api.updateProject(project.id, {
+        sla_days: Number(formData.get('sla_days')),
+        max_credits_per_day: Number(formData.get('max_credits_per_day')),
+        urgency_multiplier: Number(formData.get('urgency_multiplier')),
+        work_days: workDays
+      });
+
+      showToast('Reglas del proyecto actualizadas');
+      onProjectUpdated(updatedProject);
+    } catch (error) {
+      showToast('No se pudieron guardar las reglas del proyecto', 'error');
+    }
+  });
+}
+
+function getProjectRules(project, creative) {
+  return {
+    sla_days: project.sla_days ?? creative?.sla_days ?? 4,
+    max_credits_per_day: project.max_credits_per_day ?? creative?.max_credits_per_day ?? 6,
+    urgency_multiplier: project.urgency_multiplier ?? creative?.urgency_multiplier ?? 1.5,
+    work_days: {
+      monday: project.work_days?.monday ?? creative?.work_days?.monday ?? true,
+      tuesday: project.work_days?.tuesday ?? creative?.work_days?.tuesday ?? true,
+      wednesday: project.work_days?.wednesday ?? creative?.work_days?.wednesday ?? true,
+      thursday: project.work_days?.thursday ?? creative?.work_days?.thursday ?? true,
+      friday: project.work_days?.friday ?? creative?.work_days?.friday ?? true,
+      saturday: project.work_days?.saturday ?? creative?.work_days?.saturday ?? false,
+      sunday: project.work_days?.sunday ?? creative?.work_days?.sunday ?? false
+    }
+  };
+}
+
+function formatEnabledDays(workDays) {
+  const labels = DAY_OPTIONS
+    .filter((day) => workDays[day.key])
+    .map((day) => day.label);
+
+  return labels.length > 0 ? labels.join(', ') : 'Sin días definidos';
 }

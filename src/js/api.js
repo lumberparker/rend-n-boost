@@ -101,6 +101,19 @@ export const api = {
     return data;
   },
 
+  async updateProject(id, updates) {
+    const client = requireSupabase();
+    const { data, error } = await client
+      .from('projects')
+      .update(updates)
+      .eq('id', id)
+      .select('*, client:clients(*), tasks(*)')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
   async addCreditsTransaction(transaction) {
     const client = requireSupabase();
     const { data, error } = await client

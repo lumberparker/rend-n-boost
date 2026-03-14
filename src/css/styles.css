@@ -214,3 +214,52 @@ body {
 .toast--warning {
   border-color: var(--color-warning-500);
 }
+
+.project-settings-grid {
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.checkbox-card {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-secondary);
+  cursor: pointer;
+}
+
+.checkbox-card input {
+  margin: 0;
+}
+
+.project-rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.project-rule-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.project-rule-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.project-rule-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
