@@ -1,5 +1,6 @@
 import { api } from '../api.js';
-import { showLoading, showError, formatDate, getStatusBadgeClass, getStatusLabel, showToast } from '../utils.js';
+import { getProjectRuleConfig, getUrgencyEvaluation } from '../rules.js';
+import { buildWhatsAppUrl, showLoading, showError, formatDate, getStatusBadgeClass, getStatusLabel, showToast } from '../utils.js';
 
 export async function renderClientView(token) {
   const app = document.getElementById('app');
@@ -27,6 +28,7 @@ export async function renderClientView(token) {
                 <h1 class="dashboard__title">${project.name}</h1>
                 <p class="dashboard__subtitle">${project.client.name} • ${project.client.credits_available} créditos disponibles</p>
               </div>
+              ${project.client.whatsapp_number ? `<a class="button button--outline" href="${buildWhatsAppUrl(project.client.whatsapp_number)}" target="_blank" rel="noreferrer">Abrir WhatsApp</a>` : ''}
             </div>
 
             ${project.client.plan_type === 'monthly' ? renderTaskRequestCard(project.id) : ''}
@@ -69,19 +71,31 @@ export async function renderClientView(token) {
       const formData = new FormData(requestForm);
 
       try {
+        const rules = getProjectRuleConfig(project, project.client?.creative).effective;
+        const requestedDate = formData.get('requested_date') || null;
+        const urgencyEvaluation = getUrgencyEvaluation(requestedDate, rules);
+        const manuallyUrgent = formData.get('is_urgent') === 'on';
+
         await api.createTask({
           project_id: project.id,
           title: formData.get('title'),
           description: formData.get('description'),
           credits_estimated: Number(formData.get('credits_estimated')),
-          is_urgent: formData.get('is_urgent') === 'on',
-          requested_date: formData.get('requested_date') || null,
+          is_urgent: manuallyUrgent || urgencyEvaluation.isUrgent,
+          urgency_reason: manuallyUrgent
+            ? 'El cliente marcó esta solicitud como urgente.'
+            : urgencyEvaluation.reason || null,
+          requested_date: requestedDate,
           status: 'pending',
           submitted_by_client: true
         });
 
         requestForm.reset();
-        showToast('Solicitud enviada al creativo');
+        showToast(
+          urgencyEvaluation.isUrgent
+            ? `Solicitud enviada. ${urgencyEvaluation.reason}`
+            : 'Solicitud enviada al creativo'
+        );
         await rerenderProject();
       } catch (error) {
         showToast('No se pudo enviar la solicitud', 'error');
@@ -196,6 +210,7 @@ function renderKanbanView(container, project) {
                   <span class="kanban-card__date">${formatDate(task.committed_date || task.requested_date)}</span>
                   ${task.is_urgent ? '<span class="badge badge--error">Urgente</span>' : ''}
                 </div>
+                ${task.urgency_reason ? `<p class="form-helper" style="margin-top: 0.5rem;">Urgencia: ${task.urgency_reason}</p>` : ''}
                 ${task.creative_notes ? `<p class="form-helper" style="margin-top: 0.5rem;">Nota creativa: ${task.creative_notes}</p>` : ''}
                 ${task.client_feedback ? `<p class="form-helper" style="margin-top: 0.5rem;">Tus notas: ${task.client_feedback}</p>` : ''}
                 ${task.deliverable_url ? `<p class="form-helper" style="margin-top: 0.5rem;"><a href="${task.deliverable_url}" target="_blank" rel="noreferrer">Ver entrega</a></p>` : ''}
@@ -228,6 +243,7 @@ function renderListView(container, project, rerenderProject) {
                 <strong>${task.title}</strong>
                 ${task.is_urgent ? '<span class="badge badge--error" style="margin-left: 0.5rem;">Urgente</span>' : ''}
                 ${task.description ? `<div class="form-helper">${task.description}</div>` : ''}
+                ${task.urgency_reason ? `<div class="form-helper">Urgencia: ${task.urgency_reason}</div>` : ''}
                 ${task.creative_notes ? `<div class="form-helper">Nota creativa: ${task.creative_notes}</div>` : ''}
                 ${task.client_feedback ? `<div class="form-helper">Tus notas: ${task.client_feedback}</div>` : ''}
               </td>

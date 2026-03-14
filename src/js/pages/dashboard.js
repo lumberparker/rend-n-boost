@@ -119,6 +119,7 @@ function renderPendingTasks(tasks, projects) {
                 <span>Fecha: ${formatDate(task.requested_date)}</span>
                 ${task.is_urgent ? '<span class="badge badge--error">Urgente</span>' : ''}
               </div>
+              ${task.urgency_reason ? `<p class="form-helper">Motivo urgencia: ${task.urgency_reason}</p>` : ''}
             </div>
             <div class="card__footer">
               <button class="button button--success button--sm approve-task" data-id="${task.id}">
@@ -253,11 +254,20 @@ async function counterTask(taskId) {
     }
 
     const creativeNotes = window.prompt('Notas para el cliente sobre la contrapropuesta (opcional):', task.creative_notes || '') || '';
+    const markUrgent = window.confirm('¿Quieres marcar esta contrapropuesta como urgente?');
+    const urgencyReason = markUrgent
+      ? window.prompt(
+          'Explica al cliente por qué se marca como urgente:',
+          task.urgency_reason || 'La solicitud queda marcada como urgente por la ventana de entrega.'
+        ) || 'La solicitud queda marcada como urgente por la ventana de entrega.'
+      : null;
 
     await api.updateTask(taskId, {
       status: 'counter_proposed',
       credits_counter: Number(counterCredits),
-      creative_notes: creativeNotes
+      creative_notes: creativeNotes,
+      is_urgent: Boolean(markUrgent),
+      urgency_reason: urgencyReason
     });
 
     location.reload();

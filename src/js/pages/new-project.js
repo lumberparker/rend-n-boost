@@ -5,7 +5,7 @@ import { showLoading, showError, showToast, copyToClipboard } from '../utils.js'
 
 const INITIAL_FORM_STATE = {
   client_name: '',
-  client_email: '',
+  client_whatsapp: '',
   plan_type: 'monthly',
   credits_available: '20',
   project_name: '',
@@ -111,7 +111,8 @@ function renderStep(container, state, creative) {
     try {
       const createdClient = await api.createClient({
         name: state.form.client_name,
-        email: state.form.client_email,
+        email: null,
+        whatsapp_number: state.form.client_whatsapp,
         creative_id: creative.id,
         plan_type: state.form.plan_type,
         credits_available: Number(state.form.credits_available || 0)
@@ -163,8 +164,9 @@ function renderClientStep(form) {
     </div>
 
     <div class="form-group">
-      <label class="form-label" for="clientEmail">Email del cliente</label>
-      <input id="clientEmail" name="client_email" type="email" class="form-input" value="${form.client_email}" required />
+      <label class="form-label" for="clientWhatsapp">WhatsApp del cliente</label>
+      <input id="clientWhatsapp" name="client_whatsapp" type="tel" class="form-input" placeholder="5219991234567" value="${form.client_whatsapp}" required />
+      <span class="form-helper">Usa el número completo con código de país. Este será el canal principal de comunicación.</span>
     </div>
 
     <div class="form-row">
@@ -224,8 +226,8 @@ function renderReviewStep(form) {
         <strong>${form.client_name}</strong>
       </div>
       <div class="project-rule-item">
-        <span class="project-rule-label">Email</span>
-        <strong>${form.client_email}</strong>
+        <span class="project-rule-label">WhatsApp</span>
+        <strong>${form.client_whatsapp}</strong>
       </div>
       <div class="project-rule-item">
         <span class="project-rule-label">Tipo de trabajo</span>
@@ -294,7 +296,7 @@ function renderSuccessState(container, state) {
 function applyStepValues(formState, formData, step) {
   if (step === 1) {
     formState.client_name = String(formData.get('client_name') || '');
-    formState.client_email = String(formData.get('client_email') || '');
+    formState.client_whatsapp = String(formData.get('client_whatsapp') || '');
     formState.plan_type = String(formData.get('plan_type') || 'monthly');
     formState.credits_available = String(formData.get('credits_available') || '0');
   }

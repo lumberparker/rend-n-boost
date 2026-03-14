@@ -62,3 +62,62 @@ export function formatEnabledDays(workDays) {
 
   return labels.length > 0 ? labels.join(', ') : 'Sin días definidos';
 }
+
+export function calculateBusinessDaysUntil(targetDate, workDays) {
+  if (!targetDate) {
+    return null;
+  }
+
+  const normalizedWorkDays = normalizeWorkDays(workDays);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(targetDate);
+  end.setHours(0, 0, 0, 0);
+
+  if (Number.isNaN(end.getTime())) {
+    return null;
+  }
+
+  if (end < start) {
+    return 0;
+  }
+
+  let days = 0;
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    const dayKey = DAY_OPTIONS[cursor.getDay() === 0 ? 6 : cursor.getDay() - 1].key;
+    if (normalizedWorkDays[dayKey]) {
+      days += 1;
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+}
+
+export function getUrgencyEvaluation(requestedDate, rules) {
+  const businessDays = calculateBusinessDaysUntil(requestedDate, rules.work_days);
+  if (businessDays === null) {
+    return {
+      isUrgent: false,
+      businessDays: null,
+      reason: ''
+    };
+  }
+
+  if (businessDays < rules.sla_days) {
+    return {
+      isUrgent: true,
+      businessDays,
+      reason: `La fecha solicitada deja ${businessDays} día(s) hábil(es), por debajo del SLA configurado de ${rules.sla_days} día(s). Se marcará como urgente.`
+    };
+  }
+
+  return {
+    isUrgent: false,
+    businessDays,
+    reason: ''
+  };
+}

@@ -49,7 +49,7 @@ export const api = {
     const client = requireSupabase();
     const { data, error } = await client
       .from('projects')
-      .select('*, client:clients(*)')
+      .select('*, client:clients(*, creative:creatives(*))')
       .order('created_at', { ascending: false });
     
     if (error) throw error;
@@ -61,7 +61,7 @@ export const api = {
     const { data, error } = await client
       .from('projects')
       .insert(projectInput)
-      .select('*, client:clients(*)')
+      .select('*, client:clients(*, creative:creatives(*))')
       .single();
 
     if (error) throw error;
@@ -72,7 +72,7 @@ export const api = {
     const client = requireSupabase();
     const { data, error } = await client
       .from('projects')
-      .select('*, client:clients(*), tasks(*)')
+      .select('*, client:clients(*, creative:creatives(*)), tasks(*)')
       .eq('id', id)
       .maybeSingle();
     
@@ -118,7 +118,7 @@ export const api = {
 
     const { data, error } = await client
       .from('projects')
-      .select('*, client:clients(*), tasks(*)')
+      .select('*, client:clients(*, creative:creatives(*)), tasks(*)')
       .eq('id', linkData.project_id)
       .maybeSingle();
     
@@ -168,7 +168,7 @@ export const api = {
       .from('projects')
       .update(updates)
       .eq('id', id)
-      .select('*, client:clients(*), tasks(*)')
+      .select('*, client:clients(*, creative:creatives(*)), tasks(*)')
       .single();
 
     if (error) throw error;

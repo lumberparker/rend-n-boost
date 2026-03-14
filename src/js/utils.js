@@ -81,3 +81,17 @@ export async function copyToClipboard(text) {
   document.execCommand('copy');
   input.remove();
 }
+
+export function normalizeWhatsAppNumber(value) {
+  return String(value || '').replace(/[^\d]/g, '');
+}
+
+export function buildWhatsAppUrl(value, message = '') {
+  const phone = normalizeWhatsAppNumber(value);
+  if (!phone) {
+    return '';
+  }
+
+  const query = message ? `?text=${encodeURIComponent(message)}` : '';
+  return `https://wa.me/${phone}${query}`;
+}

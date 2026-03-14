@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { renderHeader } from '../components/header.js';
-import { showLoading, showError, formatDate } from '../utils.js';
+import { showLoading, showError, formatDate, buildWhatsAppUrl } from '../utils.js';
 
 export async function renderClients(user, creative) {
   const app = document.getElementById('app');
@@ -27,7 +27,7 @@ export async function renderClients(user, creative) {
               <thead>
                 <tr>
                   <th>Nombre</th>
-                  <th>Email</th>
+                  <th>WhatsApp</th>
                   <th>Tipo de Plan</th>
                   <th>Créditos Disponibles</th>
                   <th>Fecha de Registro</th>
@@ -43,7 +43,7 @@ export async function renderClients(user, creative) {
                 ` : clients.map(client => `
                   <tr>
                     <td><strong>${client.name}</strong></td>
-                    <td>${client.email}</td>
+                    <td>${client.whatsapp_number ? `<a href="${buildWhatsAppUrl(client.whatsapp_number)}" target="_blank" rel="noreferrer">${client.whatsapp_number}</a>` : 'Sin número'}</td>
                     <td>
                       <span class="badge badge--${client.plan_type === 'monthly' ? 'success' : 'primary'}">
                         ${client.plan_type === 'monthly' ? 'Mensual' : 'Por Proyecto'}

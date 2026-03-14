@@ -2,7 +2,7 @@ import { api } from '../api.js';
 import { renderHeader } from '../components/header.js';
 import { router } from '../router.js';
 import { DAY_OPTIONS, formatEnabledDays, getProjectRuleConfig } from '../rules.js';
-import { showLoading, showError, formatDate, getStatusBadgeClass, getStatusLabel, showToast } from '../utils.js';
+import { buildWhatsAppUrl, showLoading, showError, formatDate, getStatusBadgeClass, getStatusLabel, showToast } from '../utils.js';
 
 export async function renderProject(params, user, creative) {
   const app = document.getElementById('app');
@@ -36,6 +36,7 @@ export async function renderProject(params, user, creative) {
               </p>
             </div>
             <div class="wizard__actions">
+              ${project.client.whatsapp_number ? `<a class="button button--outline" href="${buildWhatsAppUrl(project.client.whatsapp_number, `Hola ${project.client.name}, te escribo sobre el proyecto ${project.name}.`)}" target="_blank" rel="noreferrer">WhatsApp cliente</a>` : ''}
               ${publicLink ? '<button class="button button--outline" id="copyClientPortalBtn">Copiar portal cliente</button>' : ''}
               <button class="button button--outline" id="backToDashboardBtn">
                 Volver al panel
@@ -158,6 +159,7 @@ function renderKanbanView(container, project) {
                   <span class="kanban-card__date">${formatDate(task.committed_date || task.requested_date)}</span>
                   ${task.is_urgent ? '<span class="badge badge--error">Urgente</span>' : ''}
                 </div>
+                ${task.urgency_reason ? `<p class="form-helper" style="margin-top: 0.5rem;">Motivo urgencia: ${task.urgency_reason}</p>` : ''}
                 ${task.creative_notes ? `<p class="form-helper" style="margin-top: 0.75rem;">Nota creativa: ${task.creative_notes}</p>` : ''}
                 ${task.client_feedback ? `<p class="form-helper" style="margin-top: 0.5rem;">Feedback cliente: ${task.client_feedback}</p>` : ''}
                 ${task.deliverable_url ? `<p class="form-helper" style="margin-top: 0.5rem;"><a href="${task.deliverable_url}" target="_blank" rel="noreferrer">Abrir entrega</a></p>` : ''}
@@ -196,6 +198,7 @@ function renderListView(container, project, onProjectUpdated) {
               <td>
                 <strong>${task.title}</strong>
                 ${task.is_urgent ? '<span class="badge badge--error" style="margin-left: 0.5rem;">Urgente</span>' : ''}
+                ${task.urgency_reason ? `<div class="form-helper">Motivo urgencia: ${task.urgency_reason}</div>` : ''}
                 ${task.creative_notes ? `<div class="form-helper">Nota creativa: ${task.creative_notes}</div>` : ''}
                 ${task.client_feedback ? `<div class="form-helper">Feedback cliente: ${task.client_feedback}</div>` : ''}
               </td>
@@ -486,12 +489,21 @@ async function counterProjectTask(taskId, projectId, onProjectUpdated) {
   }
 
   const creativeNotes = window.prompt('Explica la contrapropuesta (opcional):', task.creative_notes || '') || '';
+  const markUrgent = window.confirm('¿Quieres marcar esta contrapropuesta como urgente?');
+  const urgencyReason = markUrgent
+    ? window.prompt(
+        'Explica al cliente por qué esta solicitud se considera urgente:',
+        task.urgency_reason || 'La solicitud requiere atención urgente según alcance y tiempos.'
+      ) || 'La solicitud requiere atención urgente según alcance y tiempos.'
+    : null;
 
   try {
     await api.updateTask(taskId, {
       status: 'counter_proposed',
       credits_counter: Number(counterCredits),
-      creative_notes: creativeNotes
+      creative_notes: creativeNotes,
+      is_urgent: Boolean(markUrgent),
+      urgency_reason: urgencyReason
     });
     showToast('Contrapropuesta enviada');
     onProjectUpdated(await api.getProject(projectId));
